@@ -1,0 +1,49 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  trac-app
+
+  Application for Trac use case using Amazon Rekognition
+
+Globals:
+  Function:
+    Timeout: 20
+    Tracing: Active
+  Api:
+    TracingEnabled: True
+
+Resources:
+  TracClassificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: TracClassificationFunction
+      Handler: trac.classification.TracClassificationFunction::handleRequest
+      Runtime: java11
+      Policies:
+        - S3ReadPolicy:
+            BucketName: '*trac*' #Update the parameter according to your bucket name
+        - AmazonRekognitionCustomLabelsFullAccess
+      Architectures:
+        - x86_64
+      MemorySize: 512
+      Environment:
+        Variables:
+          TRAC_REKOGNITION_ARN: VALUE
+          JAVA_TOOL_OPTIONS: -XX:+TieredCompilation -XX:TieredStopAtLevel=1
+      Events:
+        TracClassification:
+          Type: Api
+          Properties:
+            Path: /classify
+            Method: post
+
+Outputs:
+  TracClassificationApi:
+    Description: "API Gateway endpoint URL for Prod stage for Trac Classification function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/classify/"
+  TracClassificationFunction:
+    Description: "Trac Classification Lambda Function ARN"
+    Value: !GetAtt TracClassificationFunction.Arn
+  TracClassificationFunctionIamRole:
+    Description: "Implicit IAM Role created for Trac Classification function"
+    Value: !GetAtt TracClassificationFunctionRole.Arn
