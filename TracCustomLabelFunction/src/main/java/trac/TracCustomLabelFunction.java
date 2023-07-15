@@ -1,4 +1,4 @@
-package trac.classification;
+package trac;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -24,8 +24,8 @@ import java.util.logging.Logger;
 /**
  * Handler for requests to Lambda function.
  */
-public class TracClassificationFunction implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
-    public static final Logger logger = Logger.getLogger(TracClassificationFunction.class.getName());
+public class TracCustomLabelFunction implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
+    public static final Logger logger = Logger.getLogger(TracCustomLabelFunction.class.getName());
     public APIGatewayProxyResponseEvent handleRequest(final APIGatewayProxyRequestEvent input, final Context context) {
         Map<String, String> headers = new HashMap<>();
         headers.put("Content-Type", "application/json");
@@ -36,7 +36,19 @@ public class TracClassificationFunction implements RequestHandler<APIGatewayProx
                 .withHeaders(headers);
 
         try {
-            String arn = System.getenv("TRAC_REKOGNITION_ARN");
+            String arn = null;
+            if(input.getQueryStringParameters() != null &&
+                input.getQueryStringParameters().containsKey("type") &&
+                input.getQueryStringParameters().get("type").equals("classify")){
+                
+                arn = System.getenv("TRAC_REKOGNITION_CLASSIFY_ARN");
+
+            } else if (input.getQueryStringParameters() != null &&
+                    input.getQueryStringParameters().containsKey("type") &&
+                    input.getQueryStringParameters().get("type").equals("detect_objects")) {
+                arn = System.getenv("TRAC_REKOGNITION_OBJECT_DETECTION_ARN");
+            }
+
             String bucket_name = null;
             String image_key = null;
             if(input.getQueryStringParameters() != null &&
@@ -50,16 +62,8 @@ public class TracClassificationFunction implements RequestHandler<APIGatewayProx
             output += "\nARN is " + arn;
             output += "\nBucket is " + bucket_name;
             output += "\nImage is " + image_key;
-            final String USAGE = "\n" +
-                    "Usage: " +
-                    "DetectLabels <project arn> <S3 bucket> <S3 key>\n\n" +
-                    "Where:\n" +
-                    "project arn - the arn of the model in Rekognition Custom Labels to the image (for example, arn:aws:rekognition:us-east-1:XXXXXXXXXXXX:project/YOURPROJECT/version/YOURPROJECT.YYYY-MM-DDT00.00.00/1234567890123). \n" +
-                    "S3 bucket - the bucket where your image is stored (for example, my-bucket-name \n" +
-                    "S3 key - the path of the image inside your bucket (for example, myfolder/pic1.png). \n\n";
 
             if (arn == null || bucket_name == null || image_key== null ) {
-                output += USAGE;
                 return response
                         .withStatusCode(200)
                         .withBody(output);
